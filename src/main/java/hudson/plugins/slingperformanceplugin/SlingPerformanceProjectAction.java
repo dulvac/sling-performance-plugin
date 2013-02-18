@@ -66,6 +66,8 @@ public final class SlingPerformanceProjectAction implements Action {
      * Logger.
      */
     private static final Logger LOGGER = Logger.getLogger(SlingPerformanceProjectAction.class.getName());
+    public static final int CHART_DEFAULT_W = 1000;
+    public static final int CHART_DEFAULT_H = 300;
 
     public final AbstractProject<?, ?> project;
 
@@ -233,7 +235,7 @@ public final class SlingPerformanceProjectAction implements Action {
             datasetList.add(dataSetBuilder.build());
         }
         ChartUtil.generateGraph(request, response,
-                createRespondingTimeChart(datasetList), 900, datasetList.size() * 400);
+                createRespondingTimeChart(datasetList), CHART_DEFAULT_W, datasetList.size() * CHART_DEFAULT_H);
     }
 
     public void doRespondingTimeGraphCustom(StaplerRequest request,
@@ -259,7 +261,7 @@ public final class SlingPerformanceProjectAction implements Action {
             datasetList.add(dataSetBuilder.build());
         }
         ChartUtil.generateGraph(request, response,
-                createRespondingTimeChart(datasetList), 900, datasetList.size() * 400);
+                createRespondingTimeChart(datasetList), CHART_DEFAULT_W, datasetList.size() * CHART_DEFAULT_H);
     }
 
     /**
@@ -642,17 +644,35 @@ public final class SlingPerformanceProjectAction implements Action {
         return performanceReportPosition.getPerformanceReportPosition();
     }
 
-    private DataSetBuilder getTrendReportData(final StaplerRequest request,
-            String performanceReportName) {
+    private DataSetBuilder getTrendReportData(final StaplerRequest request, String performanceReportName) {
+        DataSetBuilder<String, CustomNumberOnlyBuildLabel> dataSet =
+                new DataSetBuilder<String, CustomNumberOnlyBuildLabel>();
 
-        DataSetBuilder<String, CustomNumberOnlyBuildLabel> dataSet = new DataSetBuilder<String, CustomNumberOnlyBuildLabel>();
-        List<? extends AbstractBuild<?, ?>> builds = getProject().getBuilds();
+        // Add builds depending on project type (single or matrix)
+        List<? extends AbstractBuild<?, ?>> builds = new ArrayList<AbstractBuild<?, ?>>();
+        boolean useCustomLabelSuffix = false;
+        if (this.project instanceof MatrixProject) {
+            // Add data to dataset builders for each configuration
+            Collection<MatrixConfiguration> configs = ((MatrixProject) this.project).getActiveConfigurations();
+            for (MatrixConfiguration config : configs) {
+                // the builds to use
+                builds.addAll((Collection) config.getBuilds());
+            }
+            useCustomLabelSuffix = true;
+        } else {
+            builds.addAll((Collection) getProject().getBuilds());
+            useCustomLabelSuffix = false;
+        }
         Range buildsLimits = getFirstAndLastBuild(request, builds);
 
         int nbBuildsToAnalyze = builds.size();
         for (AbstractBuild<?, ?> currentBuild : builds) {
             if (buildsLimits.in(nbBuildsToAnalyze)) {
+                String customLabelSuffix =
+                        (useCustomLabelSuffix) ? " [" + currentBuild.getProject().getName() + "]" : "";
                 CustomNumberOnlyBuildLabel label = new CustomNumberOnlyBuildLabel(currentBuild);
+                label.setCustomSuffix(customLabelSuffix);
+
                 PerformanceBuildAction performanceBuildAction = currentBuild.getAction(PerformanceBuildAction.class);
                 if (performanceBuildAction == null) {
                     continue;

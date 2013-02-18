@@ -267,10 +267,10 @@ public class SlingPerformanceReportMap implements ModelObject {
         }
     }
 
-    public List<PerformanceReport> getPerformanceReportsByFilename(String performanceReporFileName) {
+    public List<PerformanceReport> getPerformanceReportsByFilename(String performanceReportFileName) {
         ArrayList<PerformanceReport> performanceList = new ArrayList<PerformanceReport>();
         for (PerformanceReport report : this.getPerformanceListOrdered()) {
-            if (report.getReportFileName().equals(performanceReporFileName)) {
+            if (report.getReportFileName().equals(performanceReportFileName)) {
                 performanceList.add(report);
             }
         }
