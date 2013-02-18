@@ -4,14 +4,15 @@
   <st:include it="${it.build}" page="sidepanel.jelly" />
     <l:main-panel>
       
-        <h2>${%Performance Breakdown by test name}</h2>
+        <h1>${%Performance Breakdown by test name}</h1>
         <j:forEach var="performanceReport" items="${it.getPerformanceListOrdered()}">
-         <h3>${performanceReport.getReportFileName()}</h3>
-         <h4>Median: ${it.getReportMedian(performanceReport.getReportFileName())}</h4>
-         <h4>Min:${it.getReportMin(performanceReport.getReportFileName())}</h4>
-         <h4>Max: ${it.getReportMax(performanceReport.getReportFileName())}</h4>
-         <h4>Percentile 10%:${it.getReport10Percentile(performanceReport.getReportFileName())}</h4>
-         <h4>Percentile 90%: ${it.getReport90Percentile(performanceReport.getReportFileName())}</h4>
+         <h2>${performanceReport.getReportFileName()}</h2>
+         <h3>${performanceReport.getReportName()}</h3>
+         <h4>Median: ${it.getReportMedian(performanceReport.getReportName())}</h4>
+         <h4>Min: ${it.getReportMin(performanceReport.getReportName())}</h4>
+         <h4>Max: ${it.getReportMax(performanceReport.getReportName())}</h4>
+         <h4>Percentile 10%: ${it.getReport10Percentile(performanceReport.getReportName())}</h4>
+         <h4>Percentile 90%: ${it.getReport90Percentile(performanceReport.getReportName())}</h4>
          <hr/>
       </j:forEach> 
     </l:main-panel>

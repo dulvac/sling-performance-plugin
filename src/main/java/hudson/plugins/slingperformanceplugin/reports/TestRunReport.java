@@ -1,12 +1,8 @@
 package hudson.plugins.slingperformanceplugin.reports;
 
-import hudson.model.ModelObject;
 import hudson.model.AbstractBuild;
-import hudson.plugins.slingperformanceplugin.GraphConfigurationDetail;
+import hudson.model.ModelObject;
 import hudson.plugins.slingperformanceplugin.SlingReportSample;
-
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 
 /**
  * A report about a particular tested URI.

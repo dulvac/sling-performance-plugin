@@ -1,16 +1,5 @@
 package hudson.plugins.slingperformanceplugin;
 
-import hudson.model.ModelObject;
-import hudson.model.TaskListener;
-import hudson.model.AbstractBuild;
-import hudson.plugins.slingperformanceplugin.parsers.GenericReportParser;
-import hudson.plugins.slingperformanceplugin.parsers.SlingTextFormatReportParser;
-import hudson.plugins.slingperformanceplugin.reports.PerformanceReport;
-import hudson.plugins.slingperformanceplugin.reports.TestRunReport;
-import hudson.util.ChartUtil;
-import hudson.util.ChartUtil.NumberOnlyBuildLabel;
-import hudson.util.DataSetBuilder;
-
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FilenameFilter;
@@ -26,19 +15,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
+import hudson.model.AbstractBuild;
+import hudson.model.ModelObject;
+import hudson.model.TaskListener;
+import hudson.plugins.slingperformanceplugin.parsers.GenericReportParser;
+import hudson.plugins.slingperformanceplugin.parsers.SlingTextFormatReportParser;
+import hudson.plugins.slingperformanceplugin.reports.PerformanceReport;
+import hudson.plugins.slingperformanceplugin.reports.TestRunReport;
 
 /**
  * Root object of a performance report.
  */
 public class SlingPerformanceReportMap implements ModelObject {
 
-	/**
+    /**
      * The {@link PerformanceBuildAction} that this report belongs to.
      */
     private transient PerformanceBuildAction buildAction;
-    
+
     /**
      * {@link PerformanceReport}s are keyed by {@link PerformanceReport#reportFileName}
      *
@@ -46,34 +40,70 @@ public class SlingPerformanceReportMap implements ModelObject {
      */
     private Map<String, PerformanceReport> performanceReportMap = new LinkedHashMap<String, PerformanceReport>();
     private static final String PERFORMANCE_REPORTS_DIRECTORY = "performance-reports";
-    
+
     private static AbstractBuild<?, ?> currentBuild = null;
-        
+
+    public boolean isMergeSamples() {
+        return mergeSamples;
+    }
+
+    public void setMergeSamples(boolean mergeSamples) {
+        this.mergeSamples = mergeSamples;
+    }
+
+    private boolean mergeSamples = true;
+
     /**
      * Parses the reports and build a {@link SlingPerformanceReportMap}.
      *
-     * @throws IOException
-     *      If a report fails to parse.
+     * @throws IOException If a report fails to parse.
      */
-    SlingPerformanceReportMap(final PerformanceBuildAction buildAction, TaskListener listener)
+    SlingPerformanceReportMap(final PerformanceBuildAction buildAction, TaskListener listener, int Id)
             throws IOException {
-    	
-    	this.buildAction = buildAction;
+
+        this.buildAction = buildAction;
         parseReports(getBuild(), listener, new PerformanceReportCollector() {
 
-            public void addAll(Collection<PerformanceReport> reports) {
+            public void addAll(Collection<PerformanceReport> reports, boolean shouldMergeSamples, int Id) {
+                final String REGEX = ".* \\[\\d{5}\\]";
                 for (PerformanceReport r : reports) {
                     r.setBuildAction(buildAction);
-                    performanceReportMap.put(r.getReportFileName(), r);
+                    String reportName = r.getReportName();
+                    PerformanceReport report = performanceReportMap.get(reportName);
+                    if (null != report) {
+                        // merge datasets from the two samples in a single report
+                        if (shouldMergeSamples) {
+                            // the report is multi-sample, add the sample
+                            report.setMultipleSampleReport(true);
+                            SlingReportSample newSample = r.getReportSample();
+                            newSample.setSampleId(Id);
+                            report.addSample(r.getReportSample());
+                        // create unique key for each report (change report name)
+                        } else {
+                            if (reportName.matches(REGEX)) {
+                                int number = Integer.parseInt(
+                                        reportName.substring(reportName.length() - 6, reportName.length() - 1));
+                                number++;
+                                reportName =
+                                        reportName.substring(0, reportName.length() - 7) + String.format("[%05d]", number);
+                            } else {
+                                reportName += " [00001]";
+                            }
+                            r.setReportName(reportName);
+                            performanceReportMap.put(reportName, r);
+                        }
+                    } else {
+                        performanceReportMap.put(reportName, r);
+                    }
                 }
             }
-        }, null);
+        }, null, Id);
     }
 
     private void addAll(Collection<PerformanceReport> reports) {
         for (PerformanceReport r : reports) {
             r.setBuildAction(buildAction);
-            performanceReportMap.put(r.getReportFileName(), r);
+            performanceReportMap.put(r.getReportName(), r);
         }
     }
 
@@ -101,12 +131,7 @@ public class SlingPerformanceReportMap implements ModelObject {
     }
 
     /**
-     * <p>
-     * Give the Performance report with the parameter for name in Bean
-     * </p>
-     * 
-     * @param performanceReportName
-     * @return
+     * <p> Give the Performance report with the parameter for name in Bean </p>
      */
     public PerformanceReport getPerformanceReport(String performanceReportName) {
         return performanceReportMap.get(performanceReportName);
@@ -114,10 +139,8 @@ public class SlingPerformanceReportMap implements ModelObject {
 
     /**
      * Get a URI report within a Performance report file
-     * 
-     * @param uriReport
-     *            "Performance report file name";"URI name"
-     * @return
+     *
+     * @param uriReport "Performance report file name";"URI name"
      */
     public TestRunReport getUriReport(String uriReport) {
         if (uriReport != null) {
@@ -170,42 +193,39 @@ public class SlingPerformanceReportMap implements ModelObject {
     }
 
     /**
-     * <p>
-     * Verify if the PerformanceReport exist the performanceReportName must to be like it
-     * is in the build
-     * </p>
-     * 
-     * @param performanceReportName
+     * <p> Verify if the PerformanceReport exist the performanceReportName must to be like it is in the build </p>
+     *
      * @return boolean
      */
     public boolean isFailed(String performanceReportName) {
         return getPerformanceReport(performanceReportName) == null;
     }
-    
-    public long getReportMedian(String performanceReportName){
-    	return getPerformanceReport(performanceReportName).getMedian();
+
+    public long getReportMedian(String performanceReportName) {
+        return getPerformanceReport(performanceReportName).getMedian();
     }
-    
-    public long getReportMin(String performanceReportName){
-    	return getPerformanceReport(performanceReportName).getMin();
+
+    public long getReportMin(String performanceReportName) {
+        return getPerformanceReport(performanceReportName).getMin();
     }
-    
-    public long getReportMax(String performanceReportName){
-    	return getPerformanceReport(performanceReportName).getMax();
+
+    public long getReportMax(String performanceReportName) {
+        return getPerformanceReport(performanceReportName).getMax();
     }
-    
-    public long getReport10Percentile(String performanceReportName){
-    	return getPerformanceReport(performanceReportName).get10Percentile();
+
+    public long getReport10Percentile(String performanceReportName) {
+        return getPerformanceReport(performanceReportName).get10Percentile();
     }
-    
-    public long getReport90Percentile(String performanceReportName){
-    	return getPerformanceReport(performanceReportName).get90Percentile();
+
+    public long getReport90Percentile(String performanceReportName) {
+        return getPerformanceReport(performanceReportName).get90Percentile();
     }
-    
-    private void parseReports(AbstractBuild<?, ?> build, TaskListener listener, PerformanceReportCollector collector, final String filename) throws IOException {
+
+    private void parseReports(AbstractBuild<?, ?> build, TaskListener listener, PerformanceReportCollector collector,
+            final String filename, int Id) throws IOException {
         File repo = new File(build.getRootDir(),
-                SlingPerformanceReportMap.getPerformanceReportDirRelativePath());    
-        
+                SlingPerformanceReportMap.getPerformanceReportDirRelativePath());
+
         // files directly under the directory are for JMeter, for compatibility reasons.
         File[] files = repo.listFiles(new FileFilter() {
 
@@ -215,8 +235,7 @@ public class SlingPerformanceReportMap implements ModelObject {
         });
         // this may fail, if the build itself failed, we need to recover gracefully
         if (files != null) {
-            addAll(new SlingTextFormatReportParser("").parse(build,
-                    Arrays.asList(files), listener));
+            addAll(new SlingTextFormatReportParser("").parse(build, Arrays.asList(files), listener));
         }
 
         // otherwise subdirectory name designates the parser ID.
@@ -232,9 +251,8 @@ public class SlingPerformanceReportMap implements ModelObject {
                 GenericReportParser p = buildAction.getParserByDisplayName(dir.getName());
                 if (p != null) {
                     File[] listFiles = dir.listFiles(new FilenameFilter() {
-
                         public boolean accept(File dir, String name) {
-                            if(filename == null){
+                            if (filename == null) {
                                 return true;
                             }
                             if (name.equals(filename)) {
@@ -243,15 +261,31 @@ public class SlingPerformanceReportMap implements ModelObject {
                             return false;
                         }
                     });
-                    collector.addAll(p.parse(build, Arrays.asList(listFiles), listener));
+                    collector.addAll(p.parse(build, Arrays.asList(listFiles), listener), this.mergeSamples, Id);
                 }
             }
         }
     }
-    
+
+    public List<PerformanceReport> getPerformanceReportsByFilename(String performanceReporFileName) {
+        ArrayList<PerformanceReport> performanceList = new ArrayList<PerformanceReport>();
+        for (PerformanceReport report : this.getPerformanceListOrdered()) {
+            if (report.getReportFileName().equals(performanceReporFileName)) {
+                performanceList.add(report);
+            }
+        }
+        return performanceList;
+    }
+
     private interface PerformanceReportCollector {
 
-        public void addAll(Collection<PerformanceReport> parse);
+        /**
+         *
+         * @param reports The reports to be added to the map
+         * @param shouldMergeSamples Whether to merge samples if there are multiple reports with the same key
+         * @param Id Optional Id string to be used for multiple sample reports
+         */
+        public void addAll(Collection<PerformanceReport> reports, boolean shouldMergeSamples, int Id);
     }
-   
+
 }

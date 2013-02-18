@@ -3,6 +3,7 @@
   <l:layout css="/plugin/performance/css/style.css">
     <l:main-panel>
       <h1>${%Trend report}: ${it.filename}</h1>
+      <h2>${it.reportName}</h2>
       <table class="sortable source" border="1">
       <thead>
          <tr>

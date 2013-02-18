@@ -1,5 +1,5 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
-	xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">	
+xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
   <l:layout css="/plugin/performance/css/style.css">
     <st:include it="${it.project}" page="sidepanel.jelly" />
     <l:main-panel>
@@ -8,45 +8,29 @@
         <a href="${from.urlName}configure">${%Filter trend data}</a>
       </div>
       <div>
-       <j:forEach var="performanceReport" items="${it.performanceReportList}">
-          
+       <j:forEach var="performanceReportFile" items="${it.performanceReportFileList}">
           <center>
-            <j:choose>
-             <j:when test="${it.ifMatrixProject()}">
-             	<div class="title"><h1><center>${%Test file}: ${performanceReport} : ${it.lastBuild}</center></h1></div>
-                <a href="./respondingTimeGraphMatrix?width=900&amp;height=550&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                <img class="trend" src="./respondingTimeGraphMatrix?width=400&amp;height=325&amp;performanceReportPosition=${performanceReport}" width="400" height="325" />
-                </a>
-             </j:when>
-             <j:when test="${it.ifSlingPerformanceParserUsed(performanceReport)}">
-                <div class="title"><h1><center>${%Test file}: ${performanceReport}</center></h1></div>
-                <a href="./respondingTimeGraph?width=1000&amp;height=750&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                <img class="trend" src="./respondingTimeGraph?width=400&amp;height=325&amp;performanceReportPosition=${performanceReport}" width="400" height="325" />
-                </a>
-                <p>Click specific graph :</p>
-                <a href="./respondingTimeGraphMin?width=1000&amp;height=750&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                Min | 
-                </a>
-                <a href="./respondingTimeGraphMax?width=1000&amp;height=750&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                Max |
-                </a>
-                <a href="./respondingTimeGraphMedian?width=1000&amp;height=750&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                Median |
-                </a>
-                <a href="./respondingTimeGraphPercentile10?width=1000&amp;height=750&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                Percentile 10% |
-                </a>
-                <a href="./respondingTimeGraphPercentile90?width=1000&amp;height=750&amp;performanceReportPosition=${performanceReport}" title="${%Click for larger image}">
-                Percentile 90%
-                </a>
+            <j:set var="action_name" value="respondingTimeGraph" />
+            <j:if test="${it.ifMatrixProject()}">
+              <j:set var="action_name" value="respondingTimeGraphMatrix" />
+            </j:if>
+            <div class="title"><h1><center>${%Test file}: ${performanceReportFile}</center></h1></div>
+            <j:invokeStatic var="reportIndex" className="java.lang.Integer" method="parseInt">
+                <j:arg type="java.lang.String" value="0"/>
+            </j:invokeStatic>
+            <j:forEach var="performanceReportName" items="${it.getPerformanceReportList(performanceReportFile)}">
+                <h2>Report: ${performanceReportName}</h2>
                 <br/>
+                <img class="trend" src="./${action_name}?performanceReportPosition=${performanceReportFile}&amp;reportName=${it.urlEncodeParameter(performanceReportName)}" />
                 <p>Click for statistics table:</p>
                 <center>
-                    <a href="${from.urlName}trendReport?performanceReportPosition=${performanceReport}">${%Trend report}</a>
+                    <a href="${from.urlName}trendReport?performanceReportPosition=${performanceReportFile}&amp;reportName=${it.urlEncodeParameter(performanceReportName)}">${%Trend report}</a>
                 </center>
-             </j:when>
-           </j:choose>
-            
+
+                <!-- Increment report position for this file -->
+                <j:set var="reportIndex" value="${context.getVariable('reportIndex')+1}"/>
+            </j:forEach>
+            <hr/>
           </center>
         </j:forEach>
       </div>
